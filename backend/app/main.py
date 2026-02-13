@@ -221,12 +221,22 @@ async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     logger.info("Validation issue on %s: %s", request.url.path, exc)
+    sanitized_details: list[dict[str, object]] = []
+    for error in exc.errors():
+        mutable_error = dict(error)
+        ctx = mutable_error.get("ctx")
+        if isinstance(ctx, dict) and "error" in ctx:
+            mutable_ctx = dict(ctx)
+            mutable_ctx["error"] = str(mutable_ctx["error"])
+            mutable_error["ctx"] = mutable_ctx
+        sanitized_details.append(mutable_error)
+
     return JSONResponse(
         status_code=422,
         content={
             "error": "ValidationError",
             "message": "Invalid request payload.",
-            "details": exc.errors(),
+            "details": sanitized_details,
         },
     )
 

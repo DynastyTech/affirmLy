@@ -455,7 +455,7 @@ export default function HomePage() {
         {error && <p className={styles.error}>{error}</p>}
         {suggestedFeeling && (
           <div className={styles.suggestionBox}>
-            <p className={styles.suggestionText}>Did you mean "{suggestedFeeling}"?</p>
+            <p className={styles.suggestionText}>{`Did you mean "${suggestedFeeling}"?`}</p>
             <div className={styles.suggestionActions}>
               <button
                 type="button"
@@ -476,7 +476,7 @@ export default function HomePage() {
                   setError("Please enter a full descriptive feeling.");
                 }}
               >
-                I'll edit
+                I&apos;ll edit
               </button>
             </div>
           </div>

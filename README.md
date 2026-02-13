@@ -17,8 +17,10 @@ Affirmly is a full-stack AI web app that generates personalized therapeutic affi
 ### Backend
 
 - `POST /api/affirmation` endpoint
-- Input validation with Pydantic (`name`, `feeling`, optional `details`)
+- Input validation with Pydantic (`name`, `feeling`, optional `details`, `language`)
+- Descriptive feeling enforcement (rejects emoji-only or shorthand-style input)
 - Safe system prompt and OpenAI completion flow
+- Language-aware response generation (English, Afrikaans, Latin, Mandarin, Russian, German, French, Spanish)
 - CORS allowlist via `ALLOWED_ORIGINS`
 - Structured error handling for validation and server errors
 - Simple in-memory rate limiting on `/api/affirmation`
@@ -27,11 +29,17 @@ Affirmly is a full-stack AI web app that generates personalized therapeutic affi
 ### Frontend
 
 - Inputs for name, feeling, and optional details
-- Loading state and robust API error handling
+- Mood preset chips for fast selection
+- Inline field guidance and validation feedback
+- Loading state with spinner and robust API error handling
 - Result shown in an animated popup dialog
+- Modal accessibility improvements (focus management and keyboard support)
+- Copy affirmation and generate-another actions in the popup
 - Welcome loading screen with circular animated logo and intro text
 - Light/dark theme toggle with moon/sun icon button
+- Searchable language selector with persisted preference
 - Mobile-optimized responsive layout and reduced-motion support
+- Privacy microcopy to increase user trust and clarity
 - Footer attribution with DynastyTech link
 
 ### Quality and CI
