@@ -125,8 +125,9 @@ export default function HomePage() {
             className={styles.themeButton}
             onClick={toggleTheme}
             aria-label="Toggle light and dark mode"
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           >
-            {theme === "dark" ? "Light" : "Dark"}
+            <span aria-hidden="true">{theme === "dark" ? "☀️" : "🌙"}</span>
           </button>
         </header>
 
@@ -216,9 +217,6 @@ export default function HomePage() {
               </button>
             </div>
             <p className={styles.modalContent}>{result}</p>
-            <button type="button" className={styles.secondaryButton} onClick={() => setIsModalOpen(false)}>
-              Close
-            </button>
           </section>
         </div>
       )}
