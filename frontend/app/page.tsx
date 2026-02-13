@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import styles from "./page.module.css";
 
 type ApiResponse = {
@@ -9,6 +9,10 @@ type ApiResponse = {
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const THEME_STORAGE_KEY = "affirmly-theme";
+const REQUEST_TIMEOUT_MS = 20000;
+
+type Theme = "light" | "dark";
 
 export default function HomePage() {
   const [name, setName] = useState("");
@@ -17,15 +21,34 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [theme, setTheme] = useState<Theme>("light");
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+    const preferredDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const nextTheme: Theme = saved === "dark" || saved === "light" ? saved : preferredDark ? "dark" : "light";
+    setTheme(nextTheme);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   const canSubmit = useMemo(() => {
     return !loading && name.trim().length > 0 && feeling.trim().length > 1;
   }, [name, feeling, loading]);
 
+  function toggleTheme() {
+    setTheme((current) => (current === "light" ? "dark" : "light"));
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setResult("");
+    setIsModalOpen(false);
 
     if (!canSubmit) {
       setError("Please enter your name and how you're feeling.");
@@ -33,12 +56,16 @@ export default function HomePage() {
     }
 
     setLoading(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
     try {
       const response = await fetch(`${API_URL}/api/affirmation`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
+        signal: controller.signal,
         body: JSON.stringify({
           name: name.trim(),
           feeling: feeling.trim(),
@@ -46,9 +73,20 @@ export default function HomePage() {
         })
       });
 
-      const data = (await response.json()) as ApiResponse;
+      const rawText = await response.text();
+      let data: ApiResponse = {};
+      if (rawText) {
+        try {
+          data = JSON.parse(rawText) as ApiResponse;
+        } catch {
+          if (response.ok) {
+            throw new Error("Unexpected response format from the server.");
+          }
+        }
+      }
+
       if (!response.ok) {
-        throw new Error(data.message || "Something went wrong. Please try again.");
+        throw new Error(data.message || `Request failed (${response.status}).`);
       }
 
       if (!data.affirmation) {
@@ -56,12 +94,18 @@ export default function HomePage() {
       }
 
       setResult(data.affirmation);
+      setIsModalOpen(true);
     } catch (unknownError) {
+      if (unknownError instanceof DOMException && unknownError.name === "AbortError") {
+        setError("Request timed out. Please try again.");
+        return;
+      }
       const fallback = "Unable to generate your affirmation right now.";
       const message =
         unknownError instanceof Error && unknownError.message ? unknownError.message : fallback;
       setError(message);
     } finally {
+      window.clearTimeout(timeoutId);
       setLoading(false);
     }
   }
@@ -69,10 +113,22 @@ export default function HomePage() {
   return (
     <main className={styles.container}>
       <section className={styles.card}>
-        <h1 className={styles.title}>Affirmly</h1>
-        <p className={styles.subtitle}>
-          Enter your name and current mood to generate a personalized therapeutic affirmation.
-        </p>
+        <header className={styles.headerRow}>
+          <div>
+            <h1 className={styles.title}>Affirmly</h1>
+            <p className={styles.subtitle}>
+              Enter your name and current mood to generate a personalized therapeutic affirmation.
+            </p>
+          </div>
+          <button
+            type="button"
+            className={styles.themeButton}
+            onClick={toggleTheme}
+            aria-label="Toggle light and dark mode"
+          >
+            {theme === "dark" ? "Light" : "Dark"}
+          </button>
+        </header>
 
         <form onSubmit={onSubmit} className={styles.form} noValidate>
           <label className={styles.label} htmlFor="name">
@@ -123,8 +179,49 @@ export default function HomePage() {
         </form>
 
         {error && <p className={styles.error}>{error}</p>}
-        {result && <p className={styles.result}>{result}</p>}
+
+        <footer className={styles.footer}>
+          Designed and developed by{" "}
+          <a
+            href="https://www.dynastytech.co.za/"
+            target="_blank"
+            rel="noreferrer noopener"
+            className={styles.footerLink}
+          >
+            DynastyTech
+          </a>
+        </footer>
       </section>
+
+      {isModalOpen && (
+        <div className={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
+          <section
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="affirmation-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.modalHeader}>
+              <h2 id="affirmation-title" className={styles.modalTitle}>
+                Your Affirmation
+              </h2>
+              <button
+                type="button"
+                className={styles.closeButton}
+                onClick={() => setIsModalOpen(false)}
+                aria-label="Close affirmation popup"
+              >
+                x
+              </button>
+            </div>
+            <p className={styles.modalContent}>{result}</p>
+            <button type="button" className={styles.secondaryButton} onClick={() => setIsModalOpen(false)}>
+              Close
+            </button>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
