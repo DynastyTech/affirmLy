@@ -23,6 +23,7 @@ export default function HomePage() {
   const [result, setResult] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
+  const [isWelcoming, setIsWelcoming] = useState(true);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -36,12 +37,33 @@ export default function HomePage() {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
+  useEffect(() => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timeoutId = window.setTimeout(() => setIsWelcoming(false), reducedMotion ? 1400 : 2400);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
   const canSubmit = useMemo(() => {
     return !loading && name.trim().length > 0 && feeling.trim().length > 1;
   }, [name, feeling, loading]);
 
   function toggleTheme() {
     setTheme((current) => (current === "light" ? "dark" : "light"));
+  }
+
+  if (isWelcoming) {
+    return (
+      <main className={styles.splashScreen}>
+        <section className={styles.splashCard} aria-live="polite">
+          <div className={styles.logoRing} aria-hidden="true">
+            <span className={styles.logoCore}>a</span>
+          </div>
+          <p className={styles.splashText}>
+            Welcome to affirmLy, your daily personalized affirmations
+          </p>
+        </section>
+      </main>
+    );
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {

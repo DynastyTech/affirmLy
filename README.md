@@ -1,44 +1,65 @@
 # Affirmly
 
-Affirmly is a small full-stack AI web app that generates personalized therapeutic affirmations.
+Affirmly is a full-stack AI web app that generates personalized therapeutic affirmations.
 
-- Frontend: Next.js (React), deploy to Vercel
-- Backend: FastAPI, deploy to Railway
-- AI: OpenAI API (no mocked responses)
+- Frontend: Next.js (React), hosted on Vercel
+- Backend: FastAPI, hosted on Railway
+- AI Integration: OpenAI API (live, no mocked responses)
 
-## Project Structure
+## Live URLs
 
-```text
-affirmLy/
-  backend/
-    app/
-      main.py
-    requirements.txt
-    env.example
-    Procfile
-  frontend/
-    app/
-      layout.tsx
-      page.tsx
-      globals.css
-      page.module.css
-    package.json
-    env.example
-```
+- App (Frontend): `https://affirm-ly.vercel.app/`
+- Backend API: `https://affirmly-production.up.railway.app/`
+- GitHub Repository: `https://github.com/DynastyTech/affirmLy.git`
 
-## Backend (FastAPI)
+## Current Features
 
-### Features Implemented
+### Backend
 
-- `POST /api/affirmation`
+- `POST /api/affirmation` endpoint
 - Input validation with Pydantic (`name`, `feeling`, optional `details`)
-- CORS config via `ALLOWED_ORIGINS`
-- Simple in-memory rate limiting middleware for `/api/affirmation`
-- Structured error handling (validation, HTTP, and fallback)
-- OpenAI API call via official SDK
-- Safe system prompt with boundaries against unsafe output
+- Safe system prompt and OpenAI completion flow
+- CORS allowlist via `ALLOWED_ORIGINS`
+- Structured error handling for validation and server errors
+- Simple in-memory rate limiting on `/api/affirmation`
+- Health endpoint: `GET /health`
 
-### Local Run
+### Frontend
+
+- Inputs for name, feeling, and optional details
+- Loading state and robust API error handling
+- Result shown in an animated popup dialog
+- Welcome loading screen with circular animated logo and intro text
+- Light/dark theme toggle with moon/sun icon button
+- Mobile-optimized responsive layout and reduced-motion support
+- Footer attribution with DynastyTech link
+
+### Quality and CI
+
+- Backend API tests with `pytest`
+- GitHub Actions CI:
+  - backend tests
+  - frontend lint
+  - frontend production build
+
+## Environment Variables
+
+### Railway (Backend)
+
+- `OPENAI_API_KEY` (required)
+- `OPENAI_MODEL` (optional, default: `gpt-4o-mini`)
+- `ALLOWED_ORIGINS` (required in production; include frontend domain)
+- `RATE_LIMIT_MAX_REQUESTS` (optional, default: `10`)
+- `RATE_LIMIT_WINDOW_SECONDS` (optional, default: `60`)
+
+### Vercel (Frontend)
+
+- `NEXT_PUBLIC_API_URL` (required)
+  - Example: `https://affirmly-production.up.railway.app`
+
+## Local Development
+
+### Backend
 
 ```bash
 cd backend
@@ -46,95 +67,28 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp env.example .env
-# set OPENAI_API_KEY in .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-### Local API Test
-
-```bash
-curl -X POST http://localhost:8000/api/affirmation \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Alex","feeling":"anxious about my interview","details":"I want to feel grounded"}'
-```
-
-### Run Backend Tests
+### Backend Tests
 
 ```bash
 cd backend
 pytest -q
 ```
 
-## Frontend (Next.js)
-
-### UI Features Implemented
-
-- Name input
-- Feeling input
-- Optional details field
-- Submit button
-- Loading state
-- Error state
-- Result display
-
-### Local Run
+### Frontend
 
 ```bash
 cd frontend
 npm install
 cp env.example .env.local
-# adjust NEXT_PUBLIC_API_URL if needed
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+## Security Notes
 
-## Deployment
-
-### Backend on Railway
-
-1. Create a Railway project from `backend` directory.
-2. Set start command:
-   - `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-3. Add environment variables:
-   - `OPENAI_API_KEY`
-   - `OPENAI_MODEL` (optional, default `gpt-4o-mini`)
-   - `ALLOWED_ORIGINS` (include Vercel URL)
-
-### Frontend on Vercel
-
-1. Import repository into Vercel.
-2. Set root directory to `frontend`.
-3. Add environment variable:
-   - `NEXT_PUBLIC_API_URL` = your Railway backend URL (without trailing slash)
-4. Redeploy.
-
-## Security Best Practices Applied
-
-- No hardcoded secrets in source code
-- Environment variable based credentials
-- Request schema validation and field length constraints
-- Controlled CORS allowlist
-- Basic abuse protection with request rate limiting
-- Centralized error handling without stack trace leakage in responses
-- Defensive prompt design for safer model behavior
-- Minimal API surface (`/health` and `/api/affirmation`)
-
-## CI
-
-GitHub Actions workflow at `.github/workflows/ci.yml` runs:
-
-- Backend tests (`pytest`)
-- Frontend lint (`next lint`)
-- Frontend production build (`next build`)
-
-## What I Need From You
-
-1. OpenAI API key for backend environment (`OPENAI_API_KEY`)
-2. Your final frontend domain to add into `ALLOWED_ORIGINS`
-3. Confirmation to initialize git here and push to:
-   - `https://github.com/DynastyTech/affirmLy.git`
-4. If you want, I can also add:
-   - backend unit tests
-   - GitHub Actions CI
-   - stricter rate limiting and request-size middleware
+- Secrets are environment-based (no hardcoded keys)
+- Request payload constraints and sanitization are enforced
+- CORS is locked to configured trusted origins
+- API error responses avoid stack trace leakage
