@@ -58,6 +58,20 @@ def test_affirmation_success(monkeypatch) -> None:  # noqa: ANN001
     assert "Alex" in body["affirmation"]
 
 
+def test_affirmation_success_in_requested_language(monkeypatch) -> None:  # noqa: ANN001
+    client = TestClient(main.app)
+    _reset_rate_limiter()
+    monkeypatch.setattr(main, "openai_client", _FakeOpenAIClient("Tu es calme et capable aujourd'hui."))
+
+    response = client.post(
+        "/api/affirmation",
+        json={"name": "Alex", "feeling": "un peu stressé", "language": "fr"},
+    )
+
+    assert response.status_code == 200
+    assert "affirmation" in response.json()
+
+
 def test_affirmation_returns_error_when_openai_key_missing(monkeypatch) -> None:  # noqa: ANN001
     client = TestClient(main.app)
     _reset_rate_limiter()
@@ -86,3 +100,21 @@ def test_rate_limit_blocks_excess_requests(monkeypatch) -> None:  # noqa: ANN001
     assert third.status_code == 429
     body = third.json()
     assert body["error"] == "RateLimitExceeded"
+
+
+def test_rejects_emoji_feeling_input() -> None:
+    client = TestClient(main.app)
+    response = client.post("/api/affirmation", json={"name": "Alex", "feeling": "😟"})
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error"] == "ValidationError"
+
+
+def test_rejects_short_shorthand_feeling_input() -> None:
+    client = TestClient(main.app)
+    response = client.post("/api/affirmation", json={"name": "Alex", "feeling": "anx"})
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error"] == "ValidationError"

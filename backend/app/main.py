@@ -1,9 +1,11 @@
 import logging
 import os
+import re
 import threading
 import time
 from collections.abc import Awaitable, Callable
 from collections import defaultdict, deque
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -38,6 +40,38 @@ app.add_middleware(
 
 _rate_limit_storage: dict[str, deque[float]] = defaultdict(deque)
 _rate_limit_lock = threading.Lock()
+
+SUPPORTED_LANGUAGES: dict[str, str] = {
+    "en": "English",
+    "af": "Afrikaans",
+    "la": "Latin",
+    "zh": "Mandarin Chinese",
+    "ru": "Russian",
+    "de": "German",
+    "fr": "French",
+    "es": "Spanish",
+}
+
+FEELING_SUGGESTIONS: dict[str, str] = {
+    "anx": "anxious",
+    "strs": "stressed",
+    "dep": "depressed",
+    "conf": "confused",
+}
+
+EMOJI_PATTERN = re.compile(
+    "["
+    "\U0001F300-\U0001F6FF"
+    "\U0001F700-\U0001F77F"
+    "\U0001F780-\U0001F7FF"
+    "\U0001F800-\U0001F8FF"
+    "\U0001F900-\U0001F9FF"
+    "\U0001FA00-\U0001FAFF"
+    "\U00002700-\U000027BF"
+    "\U00002600-\U000026FF"
+    "]",
+    flags=re.UNICODE,
+)
 
 
 def _get_client_identifier(request: Request) -> str:
@@ -82,6 +116,7 @@ class AffirmationRequest(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     feeling: str = Field(min_length=2, max_length=280)
     details: str | None = Field(default=None, max_length=500)
+    language: Literal["en", "af", "la", "zh", "ru", "de", "fr", "es"] = "en"
 
     @field_validator("name")
     @classmethod
@@ -90,6 +125,31 @@ class AffirmationRequest(BaseModel):
         if not cleaned.strip():
             raise ValueError("Name must contain valid characters.")
         return cleaned.strip()
+
+    @field_validator("feeling")
+    @classmethod
+    def feeling_is_descriptive(cls, value: str) -> str:
+        feeling = value.strip()
+        if not feeling:
+            raise ValueError("Please describe how you are feeling.")
+
+        if EMOJI_PATTERN.search(feeling):
+            raise ValueError("Please use descriptive text instead of emoji for your feeling.")
+
+        shorthand = feeling.lower()
+        if shorthand in FEELING_SUGGESTIONS:
+            suggestion = FEELING_SUGGESTIONS[shorthand]
+            raise ValueError(f"Did you mean '{suggestion}'? Please use a full descriptive word.")
+
+        alpha_count = sum(1 for char in feeling if char.isalpha())
+        if alpha_count < 3:
+            raise ValueError("Please use valid words to describe your feeling.")
+
+        words_with_letters = [word for word in feeling.split() if any(char.isalpha() for char in word)]
+        if len(words_with_letters) == 1 and len(words_with_letters[0]) < 5:
+            raise ValueError("Please be more descriptive, for example: 'anxious about my presentation'.")
+
+        return feeling
 
 
 class AffirmationResponse(BaseModel):
@@ -103,17 +163,20 @@ SAFE_SYSTEM_PROMPT = (
     "Do not provide medical, legal, or crisis instructions. "
     "Do not mention being an AI model. "
     "Do not repeat user input verbatim if it contains unsafe content; instead, reframe gently. "
-    "Never output harmful, abusive, sexual, or self-harm encouraging language."
+    "Never output harmful, abusive, sexual, or self-harm encouraging language. "
+    "Always respond in the exact language requested by the user."
 )
 
 
 def _build_user_prompt(payload: AffirmationRequest) -> str:
     details = payload.details.strip() if payload.details else "No additional details provided."
+    selected_language = SUPPORTED_LANGUAGES.get(payload.language, "English")
     return (
+        f"Preferred language: {selected_language}\n"
         f"Name: {payload.name}\n"
         f"Feeling: {payload.feeling}\n"
         f"Details: {details}\n\n"
-        "Create one personalized affirmation."
+        "Create one personalized affirmation in the preferred language."
     )
 
 
